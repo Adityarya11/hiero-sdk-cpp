@@ -19,6 +19,7 @@
 #include "impl/TLSBehavior.h"
 
 #include <condition_variable>
+#include <cstdlib>
 #include <fstream>
 #include <stdexcept>
 #include <thread>
@@ -206,6 +207,12 @@ Client Client::forMainnet()
 //-----
 Client Client::forTestnet()
 {
+  if (const char* overrideConfigPath = std::getenv("HIERO_TESTNET_CONFIG_PATH");
+      overrideConfigPath != nullptr && overrideConfigPath[0] != '\0')
+  {
+    return Client::fromConfigFile(overrideConfigPath);
+  }
+
   Client client;
   client.mImpl->mNetwork = std::make_shared<internal::Network>(internal::Network::forTestnet());
   client.mImpl->mMirrorNetwork = std::make_shared<internal::MirrorNetwork>(internal::MirrorNetwork::forTestnet());

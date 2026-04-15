@@ -1,0 +1,160 @@
+name: Run Examples
+
+# --- ORIGINAL TRIGGERS (RESTORE FOR FINAL UPSTREAM PR) ---
+# on:
+#   pull_request:
+#   push:
+#     branches:
+#       - main
+#       - "release/**"
+#   workflow_dispatch:
+
+# -----------------------------------------------------------------------------
+# --- FORK TESTING TRIGGERS (REMOVE THIS BLOCK BEFORE FINAL UPSTREAM PR) ---
+# -----------------------------------------------------------------------------
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+concurrency:
+  group: run-examples-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-examples:
+    name: Build and run SDK examples (Linux + Solo)
+
+    # --- ORIGINAL RUNNER (RESTORE FOR FINAL UPSTREAM PR) ---
+    # runs-on: hiero-client-sdk-linux-large
+
+    # -------------------------------------------------------------------------
+    # --- FORK TESTING RUNNER (REMOVE BEFORE FINAL UPSTREAM PR) ---
+    # -------------------------------------------------------------------------
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Harden runner (audit outbound calls)
+        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: true
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 22
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libc6-dbg libgtest-dev build-essential
+
+      - name: Ensure binary cache path exists
+        run: mkdir -p "${{ github.workspace }}/b/vcpkg_cache"
+
+      - name: Install CMake and Ninja
+        uses: step-security/get-cmake@81a83056b6dd1f2bcf67bc6f26b7b08e1cbb86bc # v4.2.3
+        with:
+          useCloudCache: true
+
+      - name: Setup VCPkg
+        uses: step-security/run-vcpkg@48490398616947b0df92dc1b24aab5339a66f9f0 # v11.5.2
+        with:
+          binaryCachePath: ${{ github.workspace }}/b/vcpkg_cache
+
+      - name: Convert VCPkg to full clone
+        working-directory: vcpkg
+        run: |
+          if [[ "$(git rev-parse --is-shallow-repository)" == "true" ]]; then
+            git fetch --unshallow --prune
+          else
+            git fetch --prune
+          fi
+
+      - name: Prepare Hiero Solo
+        id: solo
+        uses: hiero-ledger/hiero-solo-action@692b186bd2e4c8d46b9deb1c067dc6ddcf0abcd7 # v0.18.0
+        with:
+          soloVersion: v0.68.0
+          installMirrorNode: true
+          mirrorNodeVersion: v0.151.0
+          hieroVersion: v0.72.0
+          dualMode: true
+
+      - name: Configure CMake
+        run: |
+          cmake --preset linux-x64-release \
+            -DBUILD_EXAMPLES=ON \
+            -DBUILD_TESTS=OFF \
+            -DBUILD_TCK=OFF \
+            -DBUILD_TCK_TESTS=OFF
+
+      - name: Build examples
+        run: |
+          cmake --build build/linux-x64-release --config Release -j 6
+
+      - name: Run examples
+        env:
+          OPERATOR_ID: ${{ steps.solo.outputs.accountId }}
+          OPERATOR_KEY: ${{ steps.solo.outputs.privateKey }}
+          HIERO_TESTNET_CONFIG_PATH: config/local_node.json
+          HIERO_NETWORK: testnet
+          NETWORK_NAME: testnet
+          PASSPHRASE: passphrase
+          DEFAULT_TIMEOUT_SECONDS: "180"
+          EXECUTABLES_DIRECTORY: build/linux-x64-release/src/sdk/examples/Release
+          EXAMPLE_MANIFEST_PATH: .ci/examples-manifest.txt
+        run: |
+          chmod +x ./run_examples.sh
+          ./run_examples.sh
+
+      - name: Publish example summary
+        if: always()
+        run: |
+          if [[ -f .ci/example-results.txt ]]; then
+            cat .ci/example-results.txt >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No example results were generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ -f .ci/example-failures.txt ]] && [[ -s .ci/example-failures.txt ]]; then
+            {
+              echo
+              echo "Failure excerpts"
+              echo '```text'
+              cat .ci/example-failures.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload example run logs (always)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: run-examples-logs
+          path: |
+            .ci/example-results.txt
+            .ci/example-failures.txt
+            .ci/example-logs/
+          if-no-files-found: ignore

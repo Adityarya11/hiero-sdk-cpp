@@ -1,0 +1,15 @@
+# Example execution manifest for CI.
+# Format:
+# <binary-name>|<mode>|<timeout-seconds>|<args>|<note>
+# mode: run or skip
+
+hiero-sdk-cpp-consensus-pub-sub-chunked-example|skip|180||Infinite receive loop by design.
+hiero-sdk-cpp-validate-checksum-example|skip|180||Interactive std::cin loop is not CI-safe.
+hiero-sdk-cpp-schedule-network-update-example|skip|180||Sleeps for one hour by design.
+hiero-sdk-cpp-solidity-precompile-example|skip|180||Path assumptions differ between source and CI runtime.
+hiero-sdk-cpp-zero-token-operations-example|skip|180||Path assumptions differ between source and CI runtime.
+
+hiero-sdk-cpp-token-metadata-example|run|240|-ft|Requires either -ft or -nft argument.
+hiero-sdk-cpp-consensus-pub-sub-example|run|240||Longer timeout for network propagation.
+hiero-sdk-cpp-consensus-pub-sub-with-submit-key-example|run|240||Longer timeout for network propagation.
+hiero-sdk-cpp-long-term-scheduled-transaction-example|run|240||Longer timeout due scheduled execution flow.

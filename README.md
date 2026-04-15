@@ -43,6 +43,7 @@ The C++ SDK for interacting with a [Hiero](https://hiero.org) network.
 - [NASM](https://www.nasm.us) (`nasm.exe` must be added to `%PATH%`)
 
 #### Run
+
 ```powershell
 New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
 ```
@@ -93,12 +94,12 @@ cmake --build --preset macos-arm64-release
 
 The following optional flags can be added during configuration:
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `BUILD_TESTS` | `OFF` | Include the test suite in the build |
-| `BUILD_TCK` | `OFF` | Include TCK tests in the build |
-| `BUILD_EXAMPLES` | `OFF` | Include example programs in the build |
-| `BUILD_TCK_TESTS`| `OFF` | Include TCK Server unit tests in the build |
+| Flag              | Default | Description                                |
+| ----------------- | ------- | ------------------------------------------ |
+| `BUILD_TESTS`     | `OFF`   | Include the test suite in the build        |
+| `BUILD_TCK`       | `OFF`   | Include TCK tests in the build             |
+| `BUILD_EXAMPLES`  | `OFF`   | Include example programs in the build      |
+| `BUILD_TCK_TESTS` | `OFF`   | Include TCK Server unit tests in the build |
 
 Example with all options enabled:
 
@@ -148,9 +149,7 @@ Once your local network is running, verify the configuration in `config/local_no
   "network": {
     "0.0.3": "127.0.0.1:50211"
   },
-  "mirrorNetwork": [
-    "127.0.0.1:5600"
-  ],
+  "mirrorNetwork": ["127.0.0.1:5600"],
   "operator": {
     "accountId": "0.0.2",
     "privateKey": "302e020100300506032b65700422042091132178e72057a1d7528025956fe39b0b847f200ab59b2fdd367017f3087137"
@@ -172,21 +171,23 @@ Examples demonstrate various SDK features and must be run from the project root 
 
 Create a `.env` file in the project root with the following variables:
 
-| Variable | Description |
-|----------|-------------|
-| `OPERATOR_ID` | The ID of the operator account (e.g., `0.0.1234`) |
-| `OPERATOR_KEY` | The DER-encoded hex private key of the operator account |
-| `HIERO_NETWORK` | Network name: `mainnet`, `testnet`, or `previewnet` |
-| `PASSPHRASE` | (Optional) Passphrase for mnemonic-based key generation |
+| Variable        | Description                                             |
+| --------------- | ------------------------------------------------------- |
+| `OPERATOR_ID`   | The ID of the operator account (e.g., `0.0.1234`)       |
+| `OPERATOR_KEY`  | The DER-encoded hex private key of the operator account |
+| `HIERO_NETWORK` | Network name: `mainnet`, `testnet`, or `previewnet`     |
+| `PASSPHRASE`    | (Optional) Passphrase for mnemonic-based key generation |
 
 ### Running Examples
 
 #### Mac
+
 ```C++
 package/Release/Darwin/arm64/examples/Release/<EXAMPLE-NAME>
 ```
 
 #### Windows
+
 ```C++
 package\Release\Windows\AMD64\examples\Release\<EXAMPLE-NAME>
 ```
@@ -212,7 +213,30 @@ You can run all examples using the provided scripts:
 - macOS/Linux: `run_examples.sh`
 - Windows: `run_examples.bat`
 
-Before running, update the `EXECUTABLES_DIRECTORY` variable in the script to point to your build output folder.
+By default, `run_examples.sh` auto-detects common build output folders. You can override with:
+
+```sh
+EXECUTABLES_DIRECTORY=build/linux-x64-release/src/sdk/examples/Release ./run_examples.sh
+```
+
+The script also supports manifest-driven behavior for CI:
+
+- `EXAMPLE_MANIFEST_PATH`: Override the manifest path (defaults to `.ci/examples-manifest.txt`)
+- `DEFAULT_TIMEOUT_SECONDS`: Per-example timeout default (defaults to `180`)
+
+### CI Example Validation
+
+Examples are automatically validated in CI by the `Run Examples` workflow:
+
+- Workflow: `.github/workflows/flow-run-examples.yaml`
+- Manifest: `.ci/examples-manifest.txt`
+- Results: `.ci/example-results.txt`
+- Failure excerpts: `.ci/example-failures.txt`
+
+The CI workflow sets `HIERO_TESTNET_CONFIG_PATH=config/local_node.json` so examples that call `Client::forTestnet()`
+execute against a Solo local network instead of public testnet.
+
+The workflow fails when any non-skipped example fails.
 
 ## Contributing
 
