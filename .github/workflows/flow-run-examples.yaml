@@ -1,28 +1,11 @@
 name: Run Examples
 
-# --- ORIGINAL TRIGGERS (RESTORE FOR FINAL UPSTREAM PR) ---
-# on:
-#   pull_request:
-#   push:
-#     branches:
-#       - main
-#       - "release/**"
-#   workflow_dispatch:
-
-# -----------------------------------------------------------------------------
-# --- FORK TESTING TRIGGERS (REMOVE THIS BLOCK BEFORE FINAL UPSTREAM PR) ---
-# -----------------------------------------------------------------------------
 on:
   pull_request:
-    branches:
-      - main
-    types:
-      - opened
-      - reopened
-      - synchronize
+    branches: [main]
+    types: [opened, reopened, synchronize]
   push:
-    branches:
-      - "**"
+    branches: ["**"]
   workflow_dispatch:
 
 defaults:
@@ -39,19 +22,13 @@ concurrency:
 jobs:
   run-examples:
     name: Build and run SDK examples (Linux + Solo)
-
-    # --- ORIGINAL RUNNER (RESTORE FOR FINAL UPSTREAM PR) ---
-    # runs-on: hiero-client-sdk-linux-large
-
-    # -------------------------------------------------------------------------
-    # --- FORK TESTING RUNNER (REMOVE BEFORE FINAL UPSTREAM PR) ---
-    # -------------------------------------------------------------------------
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
     steps:
       - name: Harden runner (audit outbound calls)
-        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
+        if: github.repository_owner == 'hiero-ledger'
+        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176
         with:
           egress-policy: audit
 
@@ -65,23 +42,25 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install build dependencies
+      - name: Install build dependencies (including CMake + Ninja)
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libc6-dbg libgtest-dev build-essential
+          sudo apt-get install -y \
+            pkg-config \
+            libc6-dbg \
+            libgtest-dev \
+            build-essential \
+            cmake \
+            ninja-build
 
       - name: Ensure binary cache path exists
         run: mkdir -p "${{ github.workspace }}/b/vcpkg_cache"
 
-      - name: Install CMake and Ninja
-        uses: step-security/get-cmake@81a83056b6dd1f2bcf67bc6f26b7b08e1cbb86bc # v4.2.3
-        with:
-          useCloudCache: true
-
       - name: Setup VCPkg
-        uses: step-security/run-vcpkg@48490398616947b0df92dc1b24aab5339a66f9f0 # v11.5.2
-        with:
-          binaryCachePath: ${{ github.workspace }}/b/vcpkg_cache
+        run: |
+          rm -rf vcpkg
+          git clone https://github.com/microsoft/vcpkg.git
+          ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
       - name: Convert VCPkg to full clone
         working-directory: vcpkg
